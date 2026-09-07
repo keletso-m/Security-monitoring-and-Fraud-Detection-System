@@ -112,7 +112,7 @@ python -m pip freeze | grep httpx
 
 ```
 
-**39 passed, 0 failed**
+** in progress**
 
 Covers all 4 activity signals, all 4 transaction signals, risk engine blending, combined signals, and full pipeline integration.
 
