@@ -18,3 +18,4 @@ __pycache__/
 db/incidents.db
 logs/
 
+venv-mcp/
