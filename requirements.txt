@@ -4,4 +4,3 @@ pydantic==2.9.2
 pytest==8.3.3
 twilio
 python-dotenvmcp==2.3.0
-mcp-types==2.3.0
