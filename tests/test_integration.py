@@ -188,7 +188,7 @@ class TestEventSubmission:
         data = resp.json()
         assert "risk_score" in data
         assert "alert_level" in data
-        assert "reason_flags" in data
+        assert "reasons" in data
         assert "explanations" in data
         assert "severity_rationale" in data
         assert data["id"] is not None
@@ -212,7 +212,7 @@ class TestEventSubmission:
         )
         data = resp.json()
         assert data["alert_level"] in ("MEDIUM", "HIGH", "CRITICAL")
-        assert len(data["reason_flags"]) > 0
+        assert len(data["reasons"]) > 0
         assert len(data["explanations"]) > 0
 
     def test_activity_invalid_payload_returns_422(self, admin_token):
