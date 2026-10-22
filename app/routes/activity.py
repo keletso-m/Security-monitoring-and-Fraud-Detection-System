@@ -30,8 +30,6 @@ class ActivityEvent(BaseModel):
 
 # Route 
 
-
-
 @router.post("/activity", summary="Submit a system activity event")
 @limiter.limit("120/minute")
 def submit_activity(request: Request, event: ActivityEvent, _=Depends(require_admin)):
