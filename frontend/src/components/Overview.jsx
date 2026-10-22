@@ -61,7 +61,7 @@ export default function Overview({ onNavigate }) {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); const t = setInterval(load, 10000); return () => clearInterval(t); }, [load]);
+  useEffect(() => { load(); const t = setInterval(load, 4000); return () => clearInterval(t); }, [load]);
 
   if (loading) return <Spinner />;
 

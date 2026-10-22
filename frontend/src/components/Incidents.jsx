@@ -24,7 +24,7 @@ export default function Incidents() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, [load]);
+  useEffect(() => { load(); const t = setInterval(load, 4000); return () => clearInterval(t); }, [load]);
 
   const filtered = incidents
     .filter(i => levelFilter === 'ALL' || i.alert_level === levelFilter)
