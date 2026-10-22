@@ -19,3 +19,5 @@ db/incidents.db
 logs/
 
 venv-mcp/
+
+db/*.db
