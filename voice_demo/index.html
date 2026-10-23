@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sentinel voice assistant (Alexa+ simulation)</title>
+<style>
+  :root {
+    --bg: #eef1f4; --panel: #ffffff; --ink: #14212b; --muted: #5d6b77;
+    --line: #d5dce2; --accent: #0f6b74; --crit: #b3261e; --high: #b86a00;
+    --med: #6b6f00; --low: #3a6b3a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1a21; --panel: #17252e; --ink: #e6edf1; --muted: #93a3ae;
+            --line: #2a3b46; --accent: #4fc3cf; --crit: #ff8a80; --high: #ffb74d;
+            --med: #d4d96a; --low: #8fd18f; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif; line-height: 1.5; }
+  main { max-width: 760px; margin: 0 auto; padding: 28px 18px 60px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 0 0 24px; max-width: 60ch; }
+  .stage { display: flex; flex-direction: column; align-items: center; gap: 14px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 26px 18px; }
+  #mic { width: 92px; height: 92px; border-radius: 50%; border: 0; cursor: pointer;
+    background: var(--accent); color: #fff; display: grid; place-items: center;
+    box-shadow: 0 0 0 0 var(--accent); transition: box-shadow .25s; }
+  #mic svg { width: 38px; height: 38px; fill: currentColor; }
+  #mic.listening { animation: ring 1.2s infinite; background: var(--crit); }
+  @keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(179,38,30,.55); } 100% { box-shadow: 0 0 0 26px rgba(179,38,30,0); } }
+  @media (prefers-reduced-motion: reduce) { #mic.listening { animation: none; box-shadow: 0 0 0 8px rgba(179,38,30,.35); } }
+  #mic:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  #state { color: var(--muted); min-height: 1.5em; }
+  form { display: flex; gap: 8px; width: 100%; }
+  input { flex: 1; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink); font: inherit; }
+  button.plain { padding: 10px 14px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink); font: inherit; cursor: pointer; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .chips button { font-size: .9rem; padding: 6px 12px; border-radius: 999px; }
+  #log { margin-top: 24px; display: flex; flex-direction: column; gap: 18px; }
+  .turn .you { color: var(--muted); margin: 0 0 6px; }
+  .turn .you b { color: var(--ink); font-weight: 600; }
+  .answer { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .said { font-size: 1.05rem; margin: 0 0 10px; }
+  .call { font-family: ui-monospace, "DejaVu Sans Mono", monospace; font-size: .8rem; color: var(--muted); margin: 0 0 12px; }
+  .inc { border-left: 5px solid var(--line); padding: 8px 12px; margin-top: 8px; background: var(--bg); border-radius: 0 8px 8px 0; }
+  .inc.CRITICAL { border-color: var(--crit); } .inc.HIGH { border-color: var(--high); }
+  .inc.MEDIUM { border-color: var(--med); } .inc.LOW { border-color: var(--low); }
+  .inc .head { display: flex; flex-wrap: wrap; gap: 4px 14px; font-weight: 600; }
+  .lvl.CRITICAL { color: var(--crit); } .lvl.HIGH { color: var(--high); }
+  .inc .meta { color: var(--muted); font-size: .88rem; }
+  .inc ul { margin: 6px 0 0; padding-left: 18px; font-size: .92rem; }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  td { padding: 4px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:first-child { color: var(--muted); width: 38%; }
+  .err { color: var(--crit); }
+  .note { margin-top: 28px; color: var(--muted); font-size: .85rem; max-width: 66ch; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sentinel voice assistant</h1>
+  <p class="sub">Alexa+ simulation. Ask about security incidents out loud; the page calls the Sentinel MCP server and reads the answer back.</p>
+
+  <section class="stage" aria-label="Ask a question">
+    <button id="mic" aria-label="Start listening" title="Click and ask a question">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12h-2Z"/></svg>
+    </button>
+    <div id="state" role="status">Click the mic and ask a question.</div>
+    <form id="form">
+      <input id="text" placeholder="Or type: any critical incidents?" autocomplete="off" aria-label="Type a question">
+      <button class="plain" type="submit">Ask</button>
+    </form>
+    <div class="chips" id="chips"></div>
+  </section>
+
+  <div id="log" aria-live="polite"></div>
+
+  <p class="note">Simulation notice: this page stands in for an Alexa+ device. Tools are chosen by simple keyword rules, not a language model; real Alexa+ would use its own model for that step. The MCP server and its tools are real.</p>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const log = $("log"), stateEl = $("state"), mic = $("mic");
+const EXAMPLES = ["Any critical incidents?", "Summarize the last 6 hours", "Which users are risky?", "Explain incident 765", "Is the server up?"];
+
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+
+function findList(d) {
+  if (Array.isArray(d)) return d;
+  if (d && typeof d === "object") for (const v of Object.values(d)) if (Array.isArray(v)) return v;
+  return null;
+}
+
+function incidentCard(i) {
+  const lvl = String(i.level || "").toUpperCase();
+  const c = el("div", "inc " + lvl);
+  const head = el("div", "head");
+  if (i.id !== undefined) head.append(el("span", "", "Incident " + i.id));
+  if (lvl) head.append(el("span", "lvl " + lvl, lvl));
+  if (i.score !== undefined) head.append(el("span", "", "score " + Math.round(i.score)));
+  c.append(head);
+  const meta = [i.user && "user " + i.user, i.ip, i.state, i.time && new Date(i.time).toLocaleString()].filter(Boolean).join("  |  ");
+  if (meta) c.append(el("div", "meta", meta));
+  if (i.top_reason && !i.reasons) c.append(el("div", "", i.top_reason));
+  if (i.reasons && i.reasons.length) {
+    const ul = el("ul");
+    i.reasons.forEach((r) => ul.append(el("li", "", r)));
+    c.append(ul);
+  }
+  return c;
+}
+
+function table(obj) {
+  const t = el("table");
+  for (const [k, v] of Object.entries(obj)) {
+    const tr = el("tr");
+    tr.append(el("td", "", k.replace(/_/g, " ")));
+    tr.append(el("td", "", typeof v === "object" ? JSON.stringify(v) : String(v)));
+    t.append(tr);
+  }
+  return t;
+}
+
+function renderData(box, data) {
+  if (data === null || data === undefined) return;
+  const items = findList(data);
+  if (items) {
+    items.forEach((i) => box.append(i && typeof i === "object" && ("level" in i || "top_reason" in i) ? incidentCard(i) : table(i && typeof i === "object" ? i : { value: i })));
+  } else if (data && typeof data === "object") {
+    if ("level" in data && "reasons" in data) box.append(incidentCard(data));
+    else box.append(table(data));
+  } else box.append(el("p", "", String(data)));
+}
+
+function speak(text) {
+  if (!("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "en-US";
+  speechSynthesis.speak(u);
+}
+
+async function ask(text) {
+  text = text.trim();
+  if (!text) return;
+  const turn = el("div", "turn");
+  const you = el("p", "you");
+  you.append("You asked: ", el("b", "", text));
+  const box = el("div", "answer");
+  box.append(el("p", "said", "Checking Sentinel..."));
+  turn.append(you, box);
+  log.prepend(turn);
+  stateEl.textContent = "Calling MCP server...";
+  try {
+    const res = await fetch("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+    const out = await res.json();
+    box.replaceChildren();
+    const said = el("p", out.error ? "said err" : "said", out.speech || out.error);
+    box.append(said);
+    if (out.tool) box.append(el("p", "call", "MCP tool: " + out.tool + " " + JSON.stringify(out.args)));
+    if (out.error) box.append(el("p", "call", out.error));
+    renderData(box, out.data);
+    speak(out.speech);
+  } catch (e) {
+    box.replaceChildren(el("p", "said err", "The bridge is not running. Start voice_demo/bridge.py."));
+  }
+  stateEl.textContent = "Click the mic and ask a question.";
+}
+
+// speech recognition (Chrome / Edge; needs an internet connection)
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, listening = false;
+if (SR) {
+  rec = new SR();
+  rec.lang = "en-US";
+  rec.interimResults = false;
+  rec.onresult = (e) => { const t = e.results[0][0].transcript; $("text").value = t; ask(t); };
+  rec.onerror = (e) => { stateEl.textContent = "Mic problem: " + e.error + ". You can type instead."; };
+  rec.onend = () => { listening = false; mic.classList.remove("listening"); };
+}
+mic.addEventListener("click", () => {
+  if (!rec) { stateEl.textContent = "Voice input needs Chrome or Edge. Type your question instead."; return; }
+  speechSynthesis.cancel();
+  if (listening) { rec.stop(); return; }
+  listening = true; mic.classList.add("listening"); stateEl.textContent = "Listening...";
+  rec.start();
+});
+
+$("form").addEventListener("submit", (e) => { e.preventDefault(); ask($("text").value); $("text").value = ""; });
+EXAMPLES.forEach((q) => { const b = el("button", "plain", q); b.type = "button"; b.addEventListener("click", () => ask(q)); $("chips").append(b); });
+</script>
+</body>
+</html>
