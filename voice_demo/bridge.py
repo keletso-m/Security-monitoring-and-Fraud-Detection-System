@@ -122,26 +122,32 @@ def speech_for(tool, args, data):
                     f"It was flagged for {len(reasons)} reasons. "
                     f"The main one: {data.get('top_reason')}.")
         return "I could not find that incident."
-    items = _find_list(data)
     if tool == "get_open_incidents":
+        items = (data or {}).get("incidents") or []
         crit = args.get("min_score", 0) >= 75
         label = "critical " if crit else ""
         if not items:
             return f"There are no open {label}incidents right now."
         top = items[0]
-        who = top.get("user", "an unknown user")
-        why = top.get("top_reason") or top.get("reason") or "multiple risk signals"
-        return (f"Here are the {len(items)} newest open {label}incidents. "
-                f"The latest is {str(top.get('level', '')).lower()} for {who}: {why}.")
+        n = len(items)
+        intro = f"Here is the newest open {label}incident." if n == 1 else f"Here are the {n} newest open {label}incidents."
+        return (f"{intro} The latest is incident {top.get('id')}, "
+                f"{str(top.get('level', '')).lower()}, for {top.get('user', 'an unknown user')}: "
+                f"{top.get('top_reason', 'multiple risk signals')}.")
     if tool == "top_risky_users":
-        if not items:
+        users = (data or {}).get("users") or []
+        if not users:
             return "I found no risky users in that period."
-        names = [str(i.get("user") or i.get("name") or i.get("username"))
-                 for i in items[:3] if isinstance(i, dict)]
-        return f"The riskiest users over the last {args['hours']} hours are " + ", ".join(names) + "."
+        parts = [f"{u['user']} with {u['incidents']} incidents" for u in users[:3]]
+        return f"Over the last {args['hours']} hours, the riskiest users are " + ", ".join(parts) + "."
     if tool == "summarize_recent":
-        body = _scalars(data) if isinstance(data, dict) else str(data)
-        return f"Here is the summary for the last {args['hours']} hours. {body}"
+        d = data or {}
+        lv = d.get("by_level", {})
+        counts = ", ".join(f"{lv[k]} {k.lower()}" for k in ("CRITICAL", "HIGH", "MEDIUM", "LOW") if k in lv)
+        top = d.get("most_serious") or {}
+        tail = (f" The most serious is incident {top.get('id')}, {str(top.get('level', '')).lower()}, "
+                f"for {top.get('user')}: {top.get('top_reason')}.") if top else ""
+        return f"In the last {d.get('hours', args['hours'])} hours there are {d.get('total', 0)} incidents: {counts}.{tail}"
     return "Done."
 
 
