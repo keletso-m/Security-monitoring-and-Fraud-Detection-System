@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import Overview from './components/Overview';
 import Incidents from './components/Incidents';
-import SubmitEvent from './components/SubmitEvent';
 
 const NAV = [
   { id: 'overview',  label: 'Overview',     icon: '▦' },
   { id: 'incidents', label: 'Incidents',     icon: '≡' },
-  { id: 'submit',    label: 'Submit Event',  icon: '⊕' },
 ];
 
 export default function App() {
@@ -98,7 +96,6 @@ export default function App() {
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
           {page === 'overview'  && <Overview  onNavigate={setPage} />}
           {page === 'incidents' && <Incidents />}
-          {page === 'submit'    && <SubmitEvent />}
         </div>
       </div>
     </div>

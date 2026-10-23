@@ -61,7 +61,7 @@ def _console(data: dict) -> None:
     score  = data.get("risk_score", 0)
     icon   = ICONS.get(level, "⚪")
     colour = COLOURS.get(level, "")
-    flags  = data.get("reason_flags", [])
+    flags  = data.get("reasons", [])
 
     print(f"\n{colour}{BOLD}{'─' * 56}{RESET}")
     print(f"{icon}  {colour}{BOLD}SENTINEL ALERT — {level}{RESET}  (score: {score}/100)")
@@ -101,7 +101,7 @@ def _sms(data: dict) -> None:
         from twilio.rest import Client
         client = Client(account_sid, auth_token)
 
-        flags = data.get("reason_flags", [])
+        flags = data.get("reasons", [])
         top_flags = ", ".join(flags[:3]) if flags else "none"
 
         body = (

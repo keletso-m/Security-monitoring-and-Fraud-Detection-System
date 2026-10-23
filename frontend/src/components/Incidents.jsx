@@ -4,7 +4,7 @@ import { AlertBadge, ScoreBar, Card, SectionHeader, Spinner, Btn } from './ui';
 import { format, parseISO } from 'date-fns';
 
 const LEVELS = ['ALL', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
-const TYPES  = ['ALL', 'activity', 'transaction'];
+const TYPES  = ['ALL', 'activity'];
 
 export default function Incidents() {
   const [incidents, setIncidents] = useState([]);
