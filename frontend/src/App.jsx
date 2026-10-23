@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Overview from './components/Overview';
 import Incidents from './components/Incidents';
+import Login from './components/Login';
+import { getToken } from './api';
 
 const NAV = [
   { id: 'overview',  label: 'Overview',     icon: '▦' },
@@ -9,6 +11,13 @@ const NAV = [
 
 export default function App() {
   const [page, setPage] = useState('overview');
+  const [authed, setAuthed] = useState(!!getToken());
+  useEffect(() => {
+    const onExpired = () => setAuthed(false);
+    window.addEventListener('sentinel-auth-expired', onExpired);
+    return () => window.removeEventListener('sentinel-auth-expired', onExpired);
+  }, []);
+  if (!authed) return <Login onLogin={() => setAuthed(true)} />;
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--bg)' }}>
@@ -88,7 +97,7 @@ export default function App() {
             {NAV.find(n => n.id === page)?.label}
           </span>
           <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}>
-            auto-refresh 10s
+            live - refreshes every 4s
           </span>
         </div>
 
