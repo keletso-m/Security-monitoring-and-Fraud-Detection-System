@@ -120,7 +120,7 @@ def get_incidents(limit: int = 50, min_score: int = 0) -> list[dict]:
         con.row_factory = sqlite3.Row
         cur = con.cursor()
         cur.execute("""
-            SELECT id, risk_score, alert_level, reason_flags, event_type, timestamp, state
+            SELECT id, risk_score, alert_level, reason_flags, event_type, timestamp, state, context
             FROM incidents
             WHERE risk_score >= ?
             ORDER BY id DESC
@@ -140,7 +140,7 @@ def get_incident_by_id(incident_id) -> dict | None:
         con.row_factory = sqlite3.Row
         cur = con.cursor()
         cur.execute("""
-            SELECT id, risk_score, alert_level, reason_flags, event_type, timestamp, state
+            SELECT id, risk_score, alert_level, reason_flags, event_type, timestamp, state, context
             FROM incidents
             WHERE id = ?
         """, (int(incident_id),))
