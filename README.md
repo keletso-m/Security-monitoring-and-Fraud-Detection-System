@@ -1,235 +1,156 @@
-# Sentinel
-**Security Monitoring & Fraud Detection System**
+# Sentinel: Security Monitoring & Fraud Detection
 
-Built by Keletso Monyamane · MIT License · Python 3.11+ · FastAPI · SQLite · React
+Sentinel scores security activity and financial transactions in real time, turns the risky ones into incidents, and makes those incidents available three ways: a live web dashboard, a REST API, and a **Model Context Protocol (MCP) server** that an AI assistant, including a simulated Alexa+, can query by voice.
 
----
-
-## Screenshots
-
-### Dashboard Overview
-![Dashboard Overview](docs/screenshots/dashboard_overview.png)
-
-
-### Incidents Detail Panel
-![Incident_and_detail Panel](docs/screenshots/incidents_and_detail_panel.png)
+> Built for the **Amazon Developer Hackathon, Alexa+ track**: a self-hosted MCP server (spec `2025-11-25`, Streamable HTTP) plus a web-app simulation of an Alexa+ voice experience.
 
 ---
 
-## What Is Sentinel?
+## Demo
 
-Sentinel is an event-driven security monitoring platform that collects, analyzes, and correlates system activity and financial transaction events. Both detection modules feed into a Central Risk Engine that generates explainable risk scores (0–100), severity levels, reason flags, and persistent incident records. A React dashboard provides live visibility for investigation, alert management, and operational response.
+- Video: _add your YouTube/Vimeo link here_
+- Ask out loud: *"Any critical incidents?"*, *"Which users are risky?"*, *"Summarize the last 6 hours"*, *"Explain the latest one"*.
 
----
+## How it fits together
 
-## Features
+```mermaid
+flowchart LR
+    SIM[simulator/live.py<br/>synthetic activity] -->|events, JWT| API
+    subgraph Core
+        API[FastAPI :8000] --> ENG[Risk engine]
+        ENG --> DB[(SQLite<br/>db/incidents.db)]
+    end
+    DASH[React dashboard :3001] -->|login + token auth| API
+    MCP[Sentinel MCP server :8765/mcp<br/>Streamable HTTP] -->|logs in as mcp_viewer| API
+    BR[voice_demo/bridge.py :8800<br/>keyword router] -->|MCP tool calls| MCP
+    PAGE[Alexa+ simulation page<br/>mic + speech] --> BR
+```
 
-| Feature | Status |
+The MCP server is the product's assistant-facing interface. The voice page and its bridge play the role of an Alexa+ device: a separate client that reaches Sentinel only through MCP, the same way any compliant host would.
+
+## Risk engine
+
+Every activity event is evaluated against rule-based signals and blended into a **0 to 100 score**, which maps to `LOW`, `MEDIUM`, `HIGH` or `CRITICAL` (75 and above is critical). Each incident stores its score and the full list of human-readable reasons, so a flag is always explainable.
+
+| Signal | Example reason stored with the incident |
 |---|---|
-| Activity Detector | Done |
-| Transaction Scorer | Done |
-| Central Risk Engine | Done |
-| Alert Handler (console + NDJSON log) | Done |
-| SQLite persistence | Done |
-| Unit tests (39 tests) | Done |
-| FastAPI REST API | Done |
-| React dashboard (overview, incidents, submit events) | Done |
-| swagger/OpenAPI |  Done |
-| Email / SMS alerts (Twilio) |  In progress |
-| Event simulator/agent | Done |
-| Event correlation | Done |
-| Better risk explanations | Done |
-| Aunthentication/ authorization | Done |
-| user/entity history | Done |
-| Search/filter events | Done |
-| Severity workflow + Incident states| Done |
-| Rate limiting | Done |
-| Intergration tests | Done  |
-| API rate limiting  |  Done |
-| prometheus metrics |  Planned |
-| Graffana           | planned  |
+| Excessive failed logins | `Excessive failed logins: 7 attempts (threshold: 5)` |
+| Off-hours access | `Off-hours access: activity at 04:00 UTC (window: 00:00-05:00 UTC)` |
+| Unknown IP address | `Unknown IP address: 203.0.113.99` |
+| Suspicious command | `Suspicious command detected: 'bash -i'` |
 
+Transactions are scored by the same engine and blended with activity risk.
 
----
+## MCP server
 
-##  Quickstart
+- **Transport:** Streamable HTTP, single endpoint `http://127.0.0.1:8765/mcp`
+- **Protocol version:** `2025-11-25`, with session IDs (`MCP-Session-Id`) and the `MCP-Protocol-Version` header
+- **Binding:** `127.0.0.1` only
 
-### Backend
-
-```bash
-# 1. Clone and create virtual environment
-git clone https://github.com/keletso-m/Security-monitoring-and-Fraud-Detection-System.git
-cd Security-monitoring-and-Fraud-Detection-System
-python -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
-
-# 2. Install dependencies
-python -m pip install -r requirements.txt
-
-# 3. Initialise the database
-python scripts/init_db.py
-
-# 4. Start the API server
-PYTHONPATH=$(pwd) uvicorn app.main:app --reload
-```
-
-API runs on **http://localhost:8000** — visit **/docs** for the interactive explorer.
-
-### Dashboard
-
-```bash
-# In a second terminal
-cd frontend
-npm install
-npm start
-```
-
-Dashboard runs on **http://localhost:3000**
-
-### Fire test data
-
-```bash
-# In a third terminal
-PYTHONPATH=$(pwd) python simulator/run.py
-```
-
-Fires 5 synthetic scenarios through the full pipeline ( LOW →  CRITICAL). Results appear live in the dashboard.
-
----
-
-##  Tests
-
-```bash
-# unit tests
-pytest tests/ -v
-
-# intergration tests 
-pytest tests/test_integration.py -v
-
-# dependency for the tests
-python -m pip freeze | grep httpx
-
-```
-
-** in progress**
-
-Covers all 4 activity signals, all 4 transaction signals, risk engine blending, combined signals, and full pipeline integration.
-
----
-
-##  API
-
-| Method | Endpoint | Description |
+| Tool | Arguments | What it returns |
 |---|---|---|
-| GET | `/` | Service status |
-| GET | `/health` | Liveness check |
-| POST | `/events/activity` | Submit a system activity event |
-| POST | `/events/transaction` | Submit a transaction event |
-| GET | `/incidents` | List incidents (supports `?limit=` and `?min_score=`) |
-| GET | `/incidents/{id}` | Get one incident by ID |
+| `ping` | none | Confirms the server is up |
+| `get_open_incidents` | `min_score`, `limit` | Open incidents, newest first (`min_score=75` for critical) |
+| `explain_incident` | `incident_id` | Score, severity and every reason for one incident |
+| `summarize_recent` | `hours` | Counts by severity plus the most serious incident |
+| `top_risky_users` | `hours`, `limit` | Users ranked by incident count and max score |
 
----
+Try it from the shell:
 
-##  Project Structure
-
-```
-sentinel/
-├── app/
-│   ├── main.py                   # FastAPI entry point + CORS + lifespan
-│   └── routes/
-│       ├── activity.py           # POST /events/activity
-│       ├── transactions.py       # POST /events/transaction
-│       └── incidents.py          # GET  /incidents
-├── engine/
-│   ├── activity_detector.py      # Intrusion detection (4 signals)
-│   ├── risk_engine.py            # Score blending, DB writes, incident reads
-│   └── transaction_scorer.py     # Fraud scoring (4 signals)
-├── alerts/
-│   └── alert_handler.py          # Console output + NDJSON log
-├── frontend/
-│   ├── public/
-│   │   └── index.html
-│   └── src/
-│       ├── App.jsx               # Shell + navigation
-│       ├── api.js                # All fetch calls to FastAPI
-│       ├── index.js              # React entry point
-│       ├── index.css             # Global styles
-│       └── components/
-│           ├── Overview.jsx      # Stats, charts, recent incidents
-│           ├── Incidents.jsx     # Full incident list with filters
-│           ├── SubmitEvent.jsx   # Manual event submission + quick scenarios
-│           └── ui.jsx            # Shared components (Badge, Card, ScoreBar…)
-├── simulator/
-│   └── run.py                    # 5 synthetic test scenarios
-├── scripts/
-│   └── init_db.py                # Safe database initialiser
-├── tests/
-│   └── test_engine.py            # 39 unit + integration tests
-├── db/
-│   └── incidents.db              # SQLite — auto-created on first run
-├── logs/
-│   └── sentinel.log              # NDJSON log — auto-created on first run
-├── requirements.txt
-└── README.md
+```bash
+scripts/mcp_call.sh get_open_incidents '{"min_score":75,"limit":3}'
+scripts/mcp_call.sh explain_incident '{"incident_id":123}'
 ```
 
----
+## Alexa+ simulation (`voice_demo/`)
 
-##  Risk Scoring
+A small web app that stands in for an Alexa+ device. Press the mic and speak; the page sends the transcript to `bridge.py`, which picks an MCP tool, calls the server over Streamable HTTP, and returns the data plus a sentence that the browser reads aloud. Each answer shows the tool call it made.
 
-Transparent, weighted scoring — not a black box. Every score comes with plain-English reason flags.
+**Honest limitation:** with no paid LLM in the loop, tool selection uses simple keyword rules in `bridge.py`. Real Alexa+ would use its own model for that step. The MCP server and its tools are real and unchanged either way.
 
-**Activity signals**
+Speech recognition uses the browser's Web Speech API (Chrome or Edge, internet required). Typed input and example buttons work everywhere.
 
-| Signal | Weight |
+## Quick start
+
+**Prerequisites:** Linux or macOS, Python 3.12, Node.js 18+.
+
+```bash
+git clone <this repo> && cd Security-monitoring-and-Fraud-Detection-System
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+cd frontend && npm install && cd ..
+```
+
+Create a local `.env` for your settings (it is git-ignored), then start the backend:
+
+```bash
+read -s -p "mcp_viewer password: " SENTINEL_MCP_PASSWORD; export SENTINEL_MCP_PASSWORD; echo
+scripts/dev.sh start      # API :8000, MCP server :8765, live simulator
+scripts/dev.sh status
+```
+
+Start the dashboard and the voice demo in two more terminals:
+
+```bash
+cd frontend && npm start                 # dashboard on http://localhost:3001
+python3 voice_demo/bridge.py             # voice demo on http://127.0.0.1:8800
+```
+
+Stop everything with `scripts/dev.sh stop`.
+
+## Verify it works
+
+```bash
+scripts/check.sh
+```
+
+One command checks the API, an MCP session, the Streamable HTTP rules below, all five tools, the voice bridge, and repo hygiene.
+
+| Spec rule (2025-11-25) | Expected |
 |---|---|
-| Failed logins > 5 | +30 |
-| Access between 00:00–05:00 UTC | +15 |
-| IP not in known allowlist | +25 |
-| Suspicious command detected | +30 |
+| Invalid `Origin` header rejected (DNS-rebinding protection) | 403 |
+| Unsupported `MCP-Protocol-Version` | 400 |
+| Request without `MCP-Session-Id` | 400 |
+| Unknown `MCP-Session-Id` | 404 |
+| Notification accepted | 202 |
 
-**Transaction signals**
+Unit tests: `venv/bin/python -m pytest tests -q`.
 
-| Signal | Weight |
-|---|---|
-| Amount > ZAR 10,000 | +25 |
-| 3+ transactions in 60 seconds | +30 |
-| Location mismatch from last transaction | +25 |
-| New / unrecognised device | +20 |
+## Project layout
 
-**Blending** — activity and transaction scores are combined 50/50. A combined signal (both detectors fire) produces a significantly higher score than either alone.
+```
+app/            FastAPI app: auth (/auth/login), activity routes, health
+engine/         Risk engine: signals, scoring, incident creation
+alerts/         Alerting for high-risk incidents
+sentinel_mcp/   MCP server (Streamable HTTP) exposing the five tools
+simulator/      live.py: generates realistic and malicious activity
+frontend/       React dashboard (Overview, Incidents, login)
+voice_demo/     Alexa+ simulation: bridge.py + index.html
+scripts/        dev.sh (start/stop/status), mcp_call.sh, check.sh
+tests/          pytest suite
+```
 
-**Alert levels**
+## Security notes
 
-| Score | Level |
-|---|---|
-| 0–24 | 🟢 LOW |
-| 25–49 | 🟡 MEDIUM |
-| 50–74 | 🟠 HIGH |
-| 75–100 | 🔴 CRITICAL |
+- Dashboard and API require login with token (JWT) authentication; roles are `admin` and `viewer`.
+- The MCP server authenticates to the API as a dedicated read-only `mcp_viewer` account, with its password supplied through `SENTINEL_MCP_PASSWORD`, never committed.
+- The MCP endpoint and the voice bridge bind to `127.0.0.1`. The MCP endpoint itself has **no client authentication yet**, which the spec recommends adding for anything beyond localhost.
+- `.env`, databases and logs are git-ignored; `scripts/check.sh` verifies none are tracked.
+- Known limitations: the dashboard overview shows the latest 200 incidents and the incidents page the latest 500; the voice bridge routes by keyword, not by a model.
 
----
+## Hackathon submission
 
-##  Design Decisions
+- **Track:** Alexa+ (self-hosted MCP server, Streamable HTTP, spec 2025-11-25, plus simulated Alexa+ web app)
+- **Existed before the hackathon:** the risk engine, API and dashboard. _Edit this line if wrong._
+- **Built during the hackathon:** the MCP server and its five tools, the Alexa+ voice simulation, dashboard login and token auth, live refresh, `dev.sh` and `check.sh`, and the spec-conformance checks.
 
-**Why rule-based scoring instead of ML?** Rules are transparent, debuggable, and explainable which matters in security. An ML layer is planned for v2 on top of a working, auditable baseline.
+## Roadmap
 
-**Why SQLite?** Zero infrastructure to run locally. The DB layer is abstracted in `risk_engine.py` so PostgreSQL is a config change, not a rewrite.
-
-**Why a unified risk engine?** A combined signal is more actionable than two separate alerts. A user flagged by both detectors simultaneously is a much stronger indicator than either alone Scenario 5 in the simulator scores 92/100 for exactly this reason.
-
-**Why separate frontend and backend?** The React app talks to FastAPI via a REST API, keeping the two independently deployable. The `proxy` field in `package.json` handles CORS in development in production you'd put both behind a reverse proxy like nginx.
-
----
-
-## Screenshots 
-
-
+- Authentication on the MCP endpoint (OAuth, per the MCP authorization spec)
+- LLM-based tool selection in the voice page, replacing keyword rules
+- Server-side counts so totals are not capped by list limits
+- Per-IP rate limiting and alert routing by severity
 
 ## License
 
-MIT — use it, extend it, learn from it.
-
----
-
-*Built by Keletso Monyamane — [github.com/keletso-m](https://github.com/keletso-m)*
+See [LICENSE](LICENSE).
