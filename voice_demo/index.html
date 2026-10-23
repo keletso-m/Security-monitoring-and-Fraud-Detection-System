@@ -55,6 +55,11 @@
   table { border-collapse: collapse; width: 100%; font-size: .92rem; }
   td { padding: 4px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
   td:first-child { color: var(--muted); width: 38%; }
+  .levels { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .level { flex: 1; min-width: 80px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--bg); }
+  .level strong { display: block; font-size: 1.5rem; line-height: 1.1; }
+  .level span { color: var(--muted); font-size: .85rem; }
+  .level.CRITICAL strong { color: var(--crit); } .level.HIGH strong { color: var(--high); }
   .err { color: var(--crit); }
   .note { margin-top: 28px; color: var(--muted); font-size: .85rem; max-width: 66ch; }
 </style>
@@ -131,13 +136,35 @@ function table(obj) {
 
 function renderData(box, data) {
   if (data === null || data === undefined) return;
-  const items = findList(data);
-  if (items) {
-    items.forEach((i) => box.append(i && typeof i === "object" && ("level" in i || "top_reason" in i) ? incidentCard(i) : table(i && typeof i === "object" ? i : { value: i })));
-  } else if (data && typeof data === "object") {
-    if ("level" in data && "reasons" in data) box.append(incidentCard(data));
-    else box.append(table(data));
-  } else box.append(el("p", "", String(data)));
+  if (data.by_level) {                       // summarize_recent
+    const row = el("div", "levels");
+    ["CRITICAL", "HIGH", "MEDIUM", "LOW"].forEach((k) => {
+      if (k in data.by_level) {
+        const c = el("div", "level " + k);
+        c.append(el("strong", "", String(data.by_level[k])), el("span", "", k.toLowerCase()));
+        row.append(c);
+      }
+    });
+    box.append(row);
+    if (data.most_serious) { box.append(el("p", "call", "Most serious")); box.append(incidentCard(data.most_serious)); }
+    return;
+  }
+  if (data.users) {                          // top_risky_users
+    const t = el("table");
+    data.users.forEach((u) => {
+      const tr = el("tr");
+      tr.append(el("td", "", u.user), el("td", "", u.incidents + " incidents"), el("td", "", "max score " + Math.round(u.max_score)));
+      t.append(tr);
+    });
+    box.append(t);
+    return;
+  }
+  if (data.incidents) {                      // get_open_incidents
+    data.incidents.forEach((i) => box.append(incidentCard(i)));
+    return;
+  }
+  if (data.level && data.reasons) { box.append(incidentCard(data)); return; }   // explain_incident
+  if (typeof data === "object") box.append(table(data)); else box.append(el("p", "", String(data)));
 }
 
 function speak(text) {
