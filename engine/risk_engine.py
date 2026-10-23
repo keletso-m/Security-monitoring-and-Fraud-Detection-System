@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from engine.explainer import explain_flags, explain_severity
-import uuid
 
 logger = logging.getLogger("sentinel.risk_engine")
 
@@ -14,8 +13,8 @@ ROOT    = Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "db" / "incidents.db"
 
 #  Blending weights 
-WEIGHT_ACTIVITY:    float = 0.55
-WEIGHT_TRANSACTION: float = 0.45
+WEIGHT_ACTIVITY:    float = 1.0
+WEIGHT_TRANSACTION: float = 0.0
 
 #  alert level thresholds 
 LEVEL_CRITICAL: int = 75
@@ -93,7 +92,7 @@ def evaluate(
         ip_address    = context.get("ip_address", "unknown"),
         activity_score    = activity_score,
         transaction_score = transaction_score,
-        incident_id   = str(uuid.uuid4()),
+        incident_id   = None,
     )
      # generate human/ explaible explanations
     result.explanations       = explain_flags(all_reasons)
@@ -105,7 +104,7 @@ def evaluate(
         transaction_score = transaction_score,
     )
 
-    _persist(result) # no longer overwrite the incident_id
+    result.incident_id = _persist(result)
 
     logger.info(
         "Risk evaluation complete | score=%d level=%s event=%s reasons=%d",
