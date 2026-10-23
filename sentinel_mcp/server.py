@@ -27,7 +27,7 @@ mcp = MCPServer(
     ),
 )
 
-_client = httpx.Client(base_url=BASE_URL, timeout=10)
+_client = httpx.Client(base_url=BASE_URL, timeout=10, follow_redirects=True)
 _lock = threading.Lock()
 _token = None
 
